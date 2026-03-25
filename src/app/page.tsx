@@ -27,7 +27,9 @@ export default async function Home() {
       <h1 style={{ fontSize: 20, fontWeight: 700 }}>OpenClaw Dashboard</h1>
       <p style={{ marginTop: 8, opacity: 0.8 }}>API: {base}</p>
 
-      <h2 style={{ marginTop: 20, fontSize: 16, fontWeight: 600 }}>Agents</h2>
+      <div style={{ marginTop: 14 }}><a href="/tasks" style={{ textDecoration: "underline" }}>Tasks inbox</a></div>
+
+<h2 style={{ marginTop: 20, fontSize: 16, fontWeight: 600 }}>Agents</h2>
       <pre
         style={{
           marginTop: 10,
