@@ -4,22 +4,48 @@ import { Topbar } from '../components/Topbar';
 
 type AgentsResp = { agents: string[] };
 
-async function getAgents(): Promise<AgentsResp | null> {
+type ConvMsg = {
+  id: string;
+  taskId: string | null;
+  role: string;
+  text: string;
+  createdAt: string;
+};
+
+async function apiFetch(path: string) {
   const base = process.env.DASHBOARD_API_BASE;
   const token = process.env.DASHBOARD_TOKEN;
-  if (!base || !token) return null;
-
-  const res = await fetch(`${base}/agents`, {
+  if (!base || !token) throw new Error('missing env');
+  return fetch(`${base}${path}`, {
     headers: { 'X-Dashboard-Token': token },
     cache: 'no-store',
   });
+}
 
-  if (!res.ok) return null;
-  return res.json();
+async function getAgents(): Promise<AgentsResp | null> {
+  try {
+    const res = await apiFetch('/agents');
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
+}
+
+async function getConversations(): Promise<ConvMsg[]> {
+  const res = await apiFetch('/conversations?limit=20');
+  const data = await res.json();
+  return data.messages || [];
+}
+
+function roleColor(role: string) {
+  if (role === 'quartermaster') return '#2e7a5e';
+  if (role === 'orchestrator') return '#9a6e10';
+  return '#888780';
 }
 
 export default async function Home() {
-  const data = await getAgents();
+  const [agents, msgs] = await Promise.all([getAgents(), getConversations()]);
 
   return (
     <main>
@@ -29,15 +55,41 @@ export default async function Home() {
           <section className="sectionCard">
             <div className="sectionLabel">Agents</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {(data?.agents || []).map((a) => (
+              {(agents?.agents || []).map((a) => (
                 <span key={a} className="pill">
                   {a}
                 </span>
               ))}
-              {(data?.agents || []).length === 0 ? (
+              {(agents?.agents || []).length === 0 ? (
                 <span style={{ color: 'var(--muted)', fontSize: 12 }}>No data yet.</span>
               ) : null}
             </div>
+          </section>
+
+          <section className="sectionCard">
+            <div className="sectionLabel">Conversations</div>
+            {msgs.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>No conversation yet.</div>
+            ) : (
+              <div style={{ display: 'grid', gap: 8 }}>
+                {msgs.map((m) => (
+                  <div key={m.id} style={{ display: 'grid', gap: 3 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: roleColor(m.role), fontWeight: 500 }}>
+                        {m.role}
+                      </span>
+                      {m.taskId ? (
+                        <a href={`/tasks?task=${encodeURIComponent(m.taskId)}`} style={{ fontSize: 10, color: '#888780', textDecoration: 'underline' }}>
+                          {m.taskId}
+                        </a>
+                      ) : null}
+                      <span style={{ fontSize: 10, color: '#b4b2a9' }}>{new Date(m.createdAt).toLocaleString()}</span>
+                    </div>
+                    <div style={{ fontSize: 12, color: '#2c2c2a', lineHeight: 1.5 }}>{m.text}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
 
           <section className="sectionCard">
