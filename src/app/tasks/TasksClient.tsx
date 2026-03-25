@@ -30,7 +30,7 @@ function priorityStyle(p: string) {
   return { bg: '#ede9e0', ink: '#5f5e5a', border: '#c8c4b8' };
 }
 
-function colTheme(kind: 'draft' | 'proposed' | 'approved') {
+function colTheme(kind: 'draft' | 'proposed' | 'needs_revision' | 'approved') {
   if (kind === 'proposed') {
     return {
       colBg: '#fdf5e4',
@@ -49,6 +49,25 @@ function colTheme(kind: 'draft' | 'proposed' | 'approved') {
       meta: '#c8a048',
     };
   }
+  if (kind === 'needs_revision') {
+    return {
+      colBg: '#ede9e0',
+      colBorder: '#d3d1c7',
+      label: '#5f5e5a',
+      countBg: '#e8e4da',
+      countInk: '#5f5e5a',
+      countBorder: '#b4b2a9',
+      cardBg: '#faf8f3',
+      cardBorder: '#d8d4c8',
+      title: '#2c2c2a',
+      desc: '#888780',
+      chipBg: '#ede9e0',
+      chipInk: '#888780',
+      chipBorder: '#d3d1c7',
+      meta: '#b4b2a9',
+    };
+  }
+
   if (kind === 'approved') {
     return {
       colBg: '#e4f0ec',
@@ -125,7 +144,30 @@ export function TasksClient({ initialTasks, meta, apiBase, token }: { initialTas
 
   const draft = visible.filter((t) => t.status === 'draft');
   const proposed = visible.filter((t) => t.status === 'proposed');
+  const needsRevision = visible.filter((t) => t.status === 'needs_revision');
   const approved = visible.filter((t) => t.status === 'approved');
+
+  async function reject(id: string, reason: string) {
+    // optimistic: fade out in proposed, then move to needs_revision
+    setAnimOut((m) => ({ ...m, [id]: true }));
+    setTimeout(() => {
+      setTasks((prev) => prev.map((x) => (x.id === id ? { ...x, status: 'needs_revision' } : x)));
+      setAnimOut((m) => {
+        const n = { ...m };
+        delete n[id];
+        return n;
+      });
+    }, 200);
+
+    await fetch(`${apiBase}/tasks/${id}/reject`, {
+      method: 'POST',
+      headers: {
+        'X-Dashboard-Token': token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ rejectedBy: 'luis', rejectionReason: reason }),
+    });
+  }
 
   async function approve(id: string) {
     // optimistic: fade out in proposed, then move
@@ -172,7 +214,7 @@ export function TasksClient({ initialTasks, meta, apiBase, token }: { initialTas
     setAdding(null);
   }
 
-  function Column({ kind, label, items }: { kind: 'draft' | 'proposed' | 'approved'; label: string; items: Task[] }) {
+  function Column({ kind, label, items }: { kind: 'draft' | 'proposed' | 'needs_revision' | 'approved'; label: string; items: Task[] }) {
     const theme = colTheme(kind);
     return (
       <section className="column" style={{ background: theme.colBg, borderColor: theme.colBorder }}>
@@ -248,9 +290,21 @@ export function TasksClient({ initialTasks, meta, apiBase, token }: { initialTas
             {t.assignee ? ` · → ${t.assignee}` : ''}
           </div>
           {showApprove ? (
-            <button type="button" className="approveBtn" onClick={onApprove}>
-              Approve
-            </button>
+            <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+              <button
+                type="button"
+                className="filterAdd"
+                onClick={() => {
+                  const r = window.prompt('Reject reason (short):') || '';
+                  reject(t.id, r);
+                }}
+              >
+                Reject
+              </button>
+              <button type="button" className="approveBtn" onClick={onApprove}>
+                Approve
+              </button>
+            </span>
           ) : (
             <span />
           )}
@@ -338,6 +392,7 @@ export function TasksClient({ initialTasks, meta, apiBase, token }: { initialTas
           <div className="columns">
             <Column kind="draft" label="Draft" items={draft} />
             <Column kind="proposed" label="Proposed" items={proposed} />
+            <Column kind="needs_revision" label="Needs revision" items={needsRevision} />
             <Column kind="approved" label="Approved" items={approved} />
           </div>
         </div>
