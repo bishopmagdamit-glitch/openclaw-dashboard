@@ -37,6 +37,10 @@ function fmtTime(ms: number) {
 
 export default async function RunsPage() {
   const res = await backendFetch('/sessions/recent?limit=50');
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`runs backend error: ${res.status} ${txt}`);
+  }
   const data = (await res.json()) as SessionsResp;
   const sessions = (data.sessions || []).slice(0, 50);
 
