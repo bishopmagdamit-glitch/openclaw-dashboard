@@ -387,9 +387,9 @@ export function TasksClient({ initialTasks, meta }: { initialTasks: Task[]; meta
       <div className="board">
         <div className="container">
           <div className="columns">
-            <Column kind="draft" label="Draft" items={draft} />
             <Column kind="proposed" label="Proposed" items={proposed} />
             <Column kind="needs_revision" label="Needs revision" items={needsRevision} />
+            <Column kind="draft" label="Draft" items={draft} />
             <Column kind="approved" label="Approved" items={approved} />
           </div>
         </div>
