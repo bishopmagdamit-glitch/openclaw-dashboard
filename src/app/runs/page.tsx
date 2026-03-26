@@ -2,20 +2,26 @@ export const dynamic = 'force-dynamic';
 
 import { Topbar } from '../../components/Topbar';
 
-type SessionItem = {
-  key: string;
-  updatedAt: number;
-  ageMs: number;
-  agentId: string;
-  kind: string;
-  model?: string;
-  totalTokens?: number;
+type Task = {
+  id: string;
+  title: string;
+  description: string;
+  status: string;
+  priority: string;
+  owner: string;
+  assignee: string | null;
+  type?: string;
+  domain?: string;
+  timeSensitivity?: string;
+  updatedAt: string;
+  approvedAt?: string | null;
+  executionStatus?: string;
+  lastRunAt?: string | null;
+  sessionKeys?: string[];
+  links?: string[];
 };
 
-type SessionsResp = {
-  count: number;
-  sessions: SessionItem[];
-};
+type TasksResp = { tasks: Task[] };
 
 async function backendFetch(path: string) {
   const base = process.env.DASHBOARD_API_BASE;
@@ -27,31 +33,88 @@ async function backendFetch(path: string) {
   });
 }
 
-function fmtTime(ms: number) {
+function pill(text: string, bg: string, border: string, ink: string) {
+  return (
+    <span
+      className="pill"
+      style={{
+        background: bg,
+        borderColor: border,
+        color: ink,
+        padding: '2px 10px',
+        fontSize: 10,
+        fontWeight: 500,
+      }}
+    >
+      {text}
+    </span>
+  );
+}
+
+function isEligibleNext(t: Task) {
+  if (t.status !== 'approved') return false;
+  if (!t.assignee) return false;
+  if (String(t.assignee).toLowerCase() === 'luis') return false;
+  const type = (t.type || 'project').toLowerCase();
+  if (type === 'ops' || type === 'admin') return false;
+  const es = (t.executionStatus || 'idle').toLowerCase();
+  if (es !== 'idle') return false;
+  return true;
+}
+
+function fmt(iso?: string | null) {
+  if (!iso) return '—';
   try {
-    return new Date(ms).toLocaleString();
+    return new Date(iso).toLocaleString();
   } catch {
-    return String(ms);
+    return iso;
   }
 }
 
+function TaskRow({ t, label }: { t: Task; label: React.ReactNode }) {
+  return (
+    <div style={{ display: 'grid', gap: 6, paddingBottom: 10, borderBottom: '0.5px solid #d8d4c8' }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+        {label}
+        {t.domain ? pill(t.domain, '#ede9e0', '#d3d1c7', '#5f5e5a') : null}
+        {t.type ? pill(t.type, '#ede9e0', '#d3d1c7', '#5f5e5a') : null}
+        {t.assignee ? <span style={{ fontSize: 10, color: 'var(--hint)' }}>→ {t.assignee}</span> : null}
+      </div>
+
+      <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)', lineHeight: 1.35 }}>{t.title}</div>
+      <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>{t.description}</div>
+
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'baseline' }}>
+        <span style={{ fontSize: 10, color: 'var(--hint)' }}>lastRun: {fmt(t.lastRunAt || null)}</span>
+        {t.sessionKeys && t.sessionKeys.length ? (
+          <span style={{ fontSize: 10, color: 'var(--muted)' }}>sessionKeys: {t.sessionKeys.slice(-2).join(', ')}</span>
+        ) : null}
+        {t.links && t.links.length ? (
+          <span style={{ fontSize: 10, color: 'var(--muted)' }}>artifacts: {t.links.length}</span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export default async function RunsPage() {
-  let data: SessionsResp | null = null;
-  let error: string | null = null;
+  const res = await backendFetch('/tasks');
+  const data = (await res.json()) as TasksResp;
+  const tasks = data.tasks || [];
 
-  try {
-    const res = await backendFetch('/sessions/recent?limit=50');
-    if (!res.ok) {
-      const txt = await res.text();
-      error = `runs backend error: ${res.status} ${txt}`;
-    } else {
-      data = (await res.json()) as SessionsResp;
-    }
-  } catch (e) {
-    error = String((e as any)?.message || e);
-  }
+  const running = tasks.filter((t) => (t.executionStatus || '').toLowerCase() === 'running');
+  const eligible = tasks.filter(isEligibleNext);
 
-  const sessions = (data?.sessions || []).slice(0, 50);
+  // oldest approvedAt would be better, but our store may not always have it; use updatedAt fallback for now.
+  // pick NEXT 1
+  const next = eligible
+    .slice()
+    .sort((a, b) => String(a.approvedAt || a.updatedAt).localeCompare(String(b.approvedAt || b.updatedAt)))[0];
+
+  const recent = tasks
+    .filter((t) => (t.executionStatus || '').toLowerCase() === 'done' || (t.executionStatus || '').toLowerCase() === 'failed')
+    .slice()
+    .sort((a, b) => String(b.lastRunAt || b.updatedAt).localeCompare(String(a.lastRunAt || a.updatedAt)));
 
   return (
     <main>
@@ -60,45 +123,49 @@ export default async function RunsPage() {
         <section className="sectionCard">
           <div className="sectionLabel">Runs</div>
           <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 10 }}>
-            Latest sessions across agents. (Transcript drilldown: next phase.)
+            Task-centric view: RUNNING, NEXT (one), and RECENT.
           </div>
 
-          {error ? (
-            <div style={{ fontSize: 12, color: '#993c1d', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{error}</div>
-          ) : null}
-
-          {!error ? (
-            <div style={{ display: 'grid', gap: 8 }}>
-              {sessions.map((s) => (
-                <div
-                  key={s.key}
-                  style={{ display: 'grid', gap: 3, paddingBottom: 8, borderBottom: '0.5px solid #d8d4c8' }}
-                >
-                  <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'baseline' }}>
-                    <span className="pill" style={{ padding: '2px 10px' }}>
-                      {s.agentId}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: 10,
-                        color: 'var(--hint)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.08em',
-                      }}
-                    >
-                      {s.kind}
-                    </span>
-                    <span style={{ fontSize: 10, color: 'var(--hint)' }}>{fmtTime(s.updatedAt)}</span>
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--ink)' }}>{s.key}</div>
-                  <div style={{ fontSize: 10, color: 'var(--muted)' }}>
-                    model: {s.model || '—'} · tokens: {s.totalTokens ?? '—'}
-                  </div>
+          <div style={{ display: 'grid', gap: 12 }}>
+            <div>
+              <div className="sectionLabel" style={{ marginBottom: 8 }}>Running</div>
+              {running.length === 0 ? (
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>Nothing running.</div>
+              ) : (
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {running.map((t) => (
+                    <TaskRow
+                      key={t.id}
+                      t={t}
+                      label={pill('RUNNING', '#fdf5e4', '#d4a840', '#7a5510')}
+                    />
+                  ))}
                 </div>
-              ))}
-              {sessions.length === 0 ? <div style={{ fontSize: 12, color: 'var(--muted)' }}>No runs yet.</div> : null}
+              )}
             </div>
-          ) : null}
+
+            <div>
+              <div className="sectionLabel" style={{ marginBottom: 8 }}>Next</div>
+              {!next ? (
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>No eligible approved tasks queued.</div>
+              ) : (
+                <TaskRow key={next.id} t={next} label={pill('NEXT', '#e8e4da', '#d3d1c7', '#5f5e5a')} />
+              )}
+            </div>
+
+            <div>
+              <div className="sectionLabel" style={{ marginBottom: 8 }}>Recent</div>
+              {recent.length === 0 ? (
+                <div style={{ fontSize: 12, color: 'var(--muted)' }}>No completed runs yet.</div>
+              ) : (
+                <div style={{ display: 'grid', gap: 10 }}>
+                  {recent.slice(0, 20).map((t) => (
+                    <TaskRow key={t.id} t={t} label={pill(String(t.executionStatus || 'DONE').toUpperCase(), '#e4f0ec', '#8abfb0', '#1a5e48')} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </section>
       </div>
     </main>
