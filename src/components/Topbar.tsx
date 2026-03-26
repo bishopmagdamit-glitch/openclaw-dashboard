@@ -1,6 +1,6 @@
 import Link from 'next/link';
 
-export function Topbar({ active }: { active: 'home' | 'tasks' }) {
+export function Topbar({ active }: { active: 'home' | 'tasks' | 'runs' }) {
   const base = process.env.DASHBOARD_API_BASE;
 
   return (
@@ -18,6 +18,9 @@ export function Topbar({ active }: { active: 'home' | 'tasks' }) {
         </Link>
         <Link href="/tasks" aria-current={active === 'tasks' ? 'page' : undefined}>
           Tasks
+        </Link>
+        <Link href="/runs" aria-current={active === 'runs' ? 'page' : undefined}>
+          Runs
         </Link>
       </nav>
     </div>
