@@ -121,7 +121,7 @@ function setQuery(next: Record<string, string | null>) {
   window.history.replaceState({}, '', url.toString());
 }
 
-export function TasksClient({ initialTasks, meta, apiBase, token }: { initialTasks: Task[]; meta: Meta; apiBase: string; token: string }) {
+export function TasksClient({ initialTasks, meta }: { initialTasks: Task[]; meta: Meta }) {
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [adding, setAdding] = useState<null | { kind: 'taskTypes' | 'taskDomains' }>(null);
   const [newValue, setNewValue] = useState('');
@@ -159,10 +159,9 @@ export function TasksClient({ initialTasks, meta, apiBase, token }: { initialTas
       });
     }, 200);
 
-    await fetch(`${apiBase}/tasks/${id}/reject`, {
+    await fetch(`/api/tasks/${id}/reject`, {
       method: 'POST',
       headers: {
-        'X-Dashboard-Token': token,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ rejectedBy: 'luis', rejectionReason: reason }),
@@ -186,10 +185,9 @@ export function TasksClient({ initialTasks, meta, apiBase, token }: { initialTas
     }, 200);
 
     // fire and forget; if fails we'll refresh by reloading (keep calm for now)
-    await fetch(`${apiBase}/tasks/${id}/approve`, {
+    await fetch(`/api/tasks/${id}/approve`, {
       method: 'POST',
       headers: {
-        'X-Dashboard-Token': token,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ approvedBy: 'luis' }),
@@ -199,10 +197,9 @@ export function TasksClient({ initialTasks, meta, apiBase, token }: { initialTas
   async function addMeta(kind: 'taskTypes' | 'taskDomains') {
     const value = newValue.trim();
     if (!value) return;
-    const res = await fetch(`${apiBase}/meta/${kind}`, {
+    const res = await fetch(`/api/meta/${kind}`, {
       method: 'POST',
       headers: {
-        'X-Dashboard-Token': token,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ value }),

@@ -16,10 +16,7 @@ async function apiFetch(path: string) {
   const base = process.env.DASHBOARD_API_BASE;
   const token = process.env.DASHBOARD_TOKEN;
   if (!base || !token) throw new Error('missing env');
-  return fetch(`${base}${path}`, {
-    headers: { 'X-Dashboard-Token': token },
-    cache: 'no-store',
-  });
+  return fetch(`/api${path}`, { cache: 'no-store' });
 }
 
 async function getAgents(): Promise<AgentsResp | null> {

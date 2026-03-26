@@ -22,43 +22,28 @@ type Task = {
   timeSensitivity?: string;
 };
 
-async function apiFetch(path: string, init?: RequestInit) {
-  const base = process.env.DASHBOARD_API_BASE;
-  const token = process.env.DASHBOARD_TOKEN;
-  if (!base || !token) throw new Error('missing env');
-
-  return fetch(`${base}${path}`, {
-    ...init,
-    headers: {
-      'X-Dashboard-Token': token,
-      ...(init?.headers || {}),
-    },
-    cache: 'no-store',
-  });
-}
-
 async function getTasks(): Promise<Task[]> {
-  const res = await apiFetch('/tasks');
+  const res = await fetch('/api/tasks', { cache: 'no-store' });
   const data = await res.json();
   return data.tasks || [];
 }
 
 async function getMeta(): Promise<Meta> {
-  const res = await apiFetch('/meta');
-  return res.json();
+  const res = await fetch('/api/meta/taskTypes', { cache: 'no-store' });
+  // we need full meta; call base endpoint via conversations route? simplest: call /api/meta/taskTypes then /api/meta/taskDomains then timeSensitivity
+  const taskTypes = await res.json();
+  const taskDomains = await (await fetch('/api/meta/taskDomains', { cache: 'no-store' })).json();
+  const timeSensitivity = await (await fetch('/api/meta/timeSensitivity', { cache: 'no-store' })).json();
+  return { taskTypes: taskTypes.taskTypes || taskTypes, taskDomains: taskDomains.taskDomains || taskDomains, timeSensitivity: timeSensitivity.timeSensitivity || timeSensitivity };
 }
 
 export default async function TasksPage() {
-  const base = process.env.DASHBOARD_API_BASE;
-  const token = process.env.DASHBOARD_TOKEN;
-  if (!base || !token) throw new Error('Missing DASHBOARD_API_BASE or DASHBOARD_TOKEN');
-
   const [tasks, meta] = await Promise.all([getTasks(), getMeta()]);
 
   return (
     <main>
       <Topbar active="tasks" />
-      <TasksClient initialTasks={tasks} meta={meta} apiBase={base} token={token} />
+      <TasksClient initialTasks={tasks} meta={meta} />
     </main>
   );
 }
