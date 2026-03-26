@@ -12,16 +12,19 @@ type ConvMsg = {
   createdAt: string;
 };
 
-async function apiFetch(path: string) {
+async function backendFetch(path: string) {
   const base = process.env.DASHBOARD_API_BASE;
   const token = process.env.DASHBOARD_TOKEN;
   if (!base || !token) throw new Error('missing env');
-  return fetch(`/api${path}`, { cache: 'no-store' });
+  return fetch(`${base}${path}`, {
+    headers: { 'X-Dashboard-Token': token },
+    cache: 'no-store',
+  });
 }
 
 async function getAgents(): Promise<AgentsResp | null> {
   try {
-    const res = await apiFetch('/agents');
+    const res = await backendFetch('/agents');
     if (!res.ok) return null;
     return res.json();
   } catch {
@@ -30,7 +33,7 @@ async function getAgents(): Promise<AgentsResp | null> {
 }
 
 async function getConversations(): Promise<ConvMsg[]> {
-  const res = await apiFetch('/conversations?limit=20');
+  const res = await backendFetch('/conversations?limit=20');
   const data = await res.json();
   return data.messages || [];
 }
@@ -72,11 +75,22 @@ export default async function Home() {
                 {msgs.map((m) => (
                   <div key={m.id} style={{ display: 'grid', gap: 3 }}>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: roleColor(m.role), fontWeight: 500 }}>
+                      <span
+                        style={{
+                          fontSize: 10,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.08em',
+                          color: roleColor(m.role),
+                          fontWeight: 500,
+                        }}
+                      >
                         {m.role}
                       </span>
                       {m.taskId ? (
-                        <a href={`/tasks?task=${encodeURIComponent(m.taskId)}`} style={{ fontSize: 10, color: '#888780', textDecoration: 'underline' }}>
+                        <a
+                          href={`/tasks?task=${encodeURIComponent(m.taskId)}`}
+                          style={{ fontSize: 10, color: '#888780', textDecoration: 'underline' }}
+                        >
                           {m.taskId}
                         </a>
                       ) : null}
@@ -92,11 +106,7 @@ export default async function Home() {
           <section className="sectionCard">
             <div className="sectionLabel">Next</div>
             <div style={{ display: 'grid', gap: 8 }}>
-              {[
-                'Add Sessions (audit trail)',
-                'Add Cron jobs tracker',
-                'Orchestrator: draft → QM consult → proposed',
-              ].map((t) => (
+              {['Add Sessions (audit trail)', 'Add Cron jobs tracker', 'Orchestrator: draft → QM consult → proposed'].map((t) => (
                 <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span
                     style={{
