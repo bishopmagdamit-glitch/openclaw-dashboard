@@ -14,10 +14,27 @@ type Project = {
 
 type ProjectsResp = { projects: Project[] };
 
-async function getProjects(): Promise<Project[]> {
-  const res = await fetch('/api/projects', { cache: 'no-store' });
-  const data = (await res.json()) as ProjectsResp;
-  return data.projects || [];
+async function safeJson(res: Response) {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { _raw: text };
+  }
+}
+
+async function getProjects(): Promise<{ projects: Project[]; error?: string }> {
+  try {
+    const res = await fetch('/api/projects', { cache: 'no-store' });
+    if (!res.ok) {
+      const txt = await res.text();
+      return { projects: [], error: `projects backend error: ${res.status} ${txt}` };
+    }
+    const data = (await safeJson(res)) as ProjectsResp;
+    return { projects: data.projects || [] };
+  } catch (e) {
+    return { projects: [], error: String((e as any)?.message || e) };
+  }
 }
 
 async function createProject(formData: FormData) {
@@ -25,10 +42,16 @@ async function createProject(formData: FormData) {
   const name = String(formData.get('name') || '').trim();
   const summary = String(formData.get('summary') || '').trim();
   if (!name) return;
-  await fetch(`${process.env.DASHBOARD_API_BASE}/projects`, {
+
+  // server action calls backend directly (safe, no mixed-content)
+  const base = process.env.DASHBOARD_API_BASE;
+  const token = process.env.DASHBOARD_TOKEN;
+  if (!base || !token) throw new Error('missing env');
+
+  await fetch(`${base}/projects`, {
     method: 'POST',
     headers: {
-      'X-Dashboard-Token': process.env.DASHBOARD_TOKEN || '',
+      'X-Dashboard-Token': token,
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({ name, summary, status: 'draft' }),
@@ -43,7 +66,7 @@ function progress(roadmap: Project['roadmap']) {
 }
 
 export default async function ProjectsPage() {
-  const projects = await getProjects();
+  const { projects, error } = await getProjects();
 
   return (
     <main>
@@ -60,15 +83,22 @@ export default async function ProjectsPage() {
               </div>
             </form>
             <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)' }}>
-              Next: Orchestrator will generate milestones + tasks (proposal step).
+              Next: Orchestrator generates milestones + tasks (proposal step).
             </div>
           </section>
 
           <section className="sectionCard">
             <div className="sectionLabel">Projects</div>
-            {projects.length === 0 ? (
+
+            {error ? (
+              <div style={{ fontSize: 12, color: '#993c1d', whiteSpace: 'pre-wrap', lineHeight: 1.5 }}>{error}</div>
+            ) : null}
+
+            {!error && projects.length === 0 ? (
               <div style={{ fontSize: 12, color: 'var(--muted)' }}>No projects yet.</div>
-            ) : (
+            ) : null}
+
+            {!error && projects.length > 0 ? (
               <div style={{ display: 'grid', gap: 10 }}>
                 {projects.map((p) => {
                   const pr = progress(p.roadmap || []);
@@ -89,7 +119,7 @@ export default async function ProjectsPage() {
                   );
                 })}
               </div>
-            )}
+            ) : null}
           </section>
         </div>
       </div>
