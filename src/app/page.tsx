@@ -22,6 +22,17 @@ type XpStore = {
   approvalsTotal: number;
 };
 
+type Quest = {
+  id: string;
+  title: string;
+  xp: number;
+  kind: 'auto' | 'manual';
+  done: boolean;
+  subtitle?: string;
+};
+
+type QuestsResp = { date: string; quests: Quest[] };
+
 async function backendFetch(path: string) {
   const base = process.env.DASHBOARD_API_BASE;
   const token = process.env.DASHBOARD_TOKEN;
@@ -62,6 +73,37 @@ async function getXp(): Promise<XpStore | null> {
   }
 }
 
+async function getQuests(): Promise<Quest[]> {
+  try {
+    const res = await backendFetch('/quests/today');
+    if (!res.ok) return [];
+    const data = (await res.json()) as QuestsResp;
+    return data.quests || [];
+  } catch {
+    return [];
+  }
+}
+
+async function completeQuest(formData: FormData) {
+  'use server';
+  const questId = String(formData.get('questId') || '');
+  if (!questId) return;
+
+  const base = process.env.DASHBOARD_API_BASE;
+  const token = process.env.DASHBOARD_TOKEN;
+  if (!base || !token) throw new Error('missing env');
+
+  await fetch(`${base}/quests/complete`, {
+    method: 'POST',
+    headers: {
+      'X-Dashboard-Token': token,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ questId }),
+    cache: 'no-store',
+  });
+}
+
 function roleColor(role: string) {
   if (role === 'quartermaster') return '#2e7a5e';
   if (role === 'orchestrator') return '#9a6e10';
@@ -69,7 +111,7 @@ function roleColor(role: string) {
 }
 
 export default async function Home() {
-  const [agents, msgs, xp] = await Promise.all([getAgents(), getConversations(), getXp()]);
+  const [agents, msgs, xp, quests] = await Promise.all([getAgents(), getConversations(), getXp(), getQuests()]);
 
   const todayXp = xp?.todayXp ?? 0;
   const pct = Math.max(0, Math.min(1, todayXp / 1000));
@@ -94,6 +136,32 @@ export default async function Home() {
       <div className="container" style={{ padding: '16px 20px' }}>
         <div style={{ display: 'grid', gap: 10 }}>
           <section className="sectionCard">
+            <div className="sectionLabel">Daily quests</div>
+            <div style={{ display: 'grid', gap: 8 }}>
+              {quests.map((q) => (
+                <div key={q.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'baseline', opacity: q.done ? 0.55 : 1 }}>
+                  <div style={{ display: 'grid', gap: 2 }}>
+                    <div style={{ fontSize: 12, color: q.done ? 'var(--muted)' : 'var(--ink)', textDecoration: q.done ? 'line-through' : 'none' }}>
+                      {q.title}
+                    </div>
+                    {q.subtitle ? <div style={{ fontSize: 10, color: 'var(--hint)' }}>{q.subtitle}</div> : null}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <span className="pill" style={{ padding: '2px 10px', fontSize: 10 }}>+{q.xp} XP</span>
+                    {q.kind === 'manual' && !q.done ? (
+                      <form action={completeQuest}>
+                        <input type="hidden" name="questId" value={q.id} />
+                        <button className="filterAdd" type="submit">mark</button>
+                      </form>
+                    ) : null}
+                    {q.done ? <span style={{ fontSize: 10, color: 'var(--hint)' }}>✓</span> : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="sectionCard">
             <div className="sectionLabel">Pulse</div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <span className="pill">approvals today: {xp?.approvalsToday ?? 0}</span>
@@ -109,16 +177,13 @@ export default async function Home() {
               {(agents?.agents || []).map((a) => (
                 <span key={a} className="pill">{a}</span>
               ))}
-              {(agents?.agents || []).length === 0 ? (
-                <span style={{ color: 'var(--muted)', fontSize: 12 }}>No data yet.</span>
-              ) : null}
             </div>
           </section>
 
           <section className="sectionCard">
-            <div className="sectionLabel">Conversations</div>
+            <div className="sectionLabel">Agent activity</div>
             {msgs.length === 0 ? (
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>No conversation yet.</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>No activity yet.</div>
             ) : (
               <div style={{ display: 'grid', gap: 8 }}>
                 {msgs.map((m) => (
