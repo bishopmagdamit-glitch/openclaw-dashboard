@@ -12,6 +12,16 @@ type ConvMsg = {
   createdAt: string;
 };
 
+type XpStore = {
+  totalXp: number;
+  todayXp: number;
+  todayDate: string | null;
+  streak: number;
+  approvalsToday: number;
+  deliverablesToday: number;
+  approvalsTotal: number;
+};
+
 async function backendFetch(path: string) {
   const base = process.env.DASHBOARD_API_BASE;
   const token = process.env.DASHBOARD_TOKEN;
@@ -33,9 +43,23 @@ async function getAgents(): Promise<AgentsResp | null> {
 }
 
 async function getConversations(): Promise<ConvMsg[]> {
-  const res = await backendFetch('/conversations?limit=20');
-  const data = await res.json();
-  return data.messages || [];
+  try {
+    const res = await backendFetch('/conversations?limit=20');
+    const data = await res.json();
+    return data.messages || [];
+  } catch {
+    return [];
+  }
+}
+
+async function getXp(): Promise<XpStore | null> {
+  try {
+    const res = await backendFetch('/xp');
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
+  }
 }
 
 function roleColor(role: string) {
@@ -45,20 +69,45 @@ function roleColor(role: string) {
 }
 
 export default async function Home() {
-  const [agents, msgs] = await Promise.all([getAgents(), getConversations()]);
+  const [agents, msgs, xp] = await Promise.all([getAgents(), getConversations(), getXp()]);
+
+  const todayXp = xp?.todayXp ?? 0;
+  const pct = Math.max(0, Math.min(1, todayXp / 1000));
 
   return (
     <main>
       <Topbar active="home" />
+
+      <div className="xpStrip">
+        <div className="container">
+          <div className="xpRow">
+            <span className="xpLabel">Today's XP</span>
+            <div className="xpTrack">
+              <div className="xpFill" style={{ width: `${pct * 100}%` }} />
+            </div>
+            <span className="xpMeta">{todayXp} / 1000</span>
+            <span className="streakPill">{xp?.streak ?? 0}-day streak</span>
+          </div>
+        </div>
+      </div>
+
       <div className="container" style={{ padding: '16px 20px' }}>
         <div style={{ display: 'grid', gap: 10 }}>
+          <section className="sectionCard">
+            <div className="sectionLabel">Pulse</div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <span className="pill">approvals today: {xp?.approvalsToday ?? 0}</span>
+              <span className="pill">deliverables today: {xp?.deliverablesToday ?? 0}</span>
+              <span className="pill">approvals total: {xp?.approvalsTotal ?? 0}</span>
+              <span className="pill">total XP: {xp?.totalXp ?? 0}</span>
+            </div>
+          </section>
+
           <section className="sectionCard">
             <div className="sectionLabel">Agents</div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               {(agents?.agents || []).map((a) => (
-                <span key={a} className="pill">
-                  {a}
-                </span>
+                <span key={a} className="pill">{a}</span>
               ))}
               {(agents?.agents || []).length === 0 ? (
                 <span style={{ color: 'var(--muted)', fontSize: 12 }}>No data yet.</span>
@@ -75,22 +124,11 @@ export default async function Home() {
                 {msgs.map((m) => (
                   <div key={m.id} style={{ display: 'grid', gap: 3 }}>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
-                      <span
-                        style={{
-                          fontSize: 10,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.08em',
-                          color: roleColor(m.role),
-                          fontWeight: 500,
-                        }}
-                      >
+                      <span style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.08em', color: roleColor(m.role), fontWeight: 500 }}>
                         {m.role}
                       </span>
                       {m.taskId ? (
-                        <a
-                          href={`/tasks?task=${encodeURIComponent(m.taskId)}`}
-                          style={{ fontSize: 10, color: '#888780', textDecoration: 'underline' }}
-                        >
+                        <a href={`/tasks?task=${encodeURIComponent(m.taskId)}`} style={{ fontSize: 10, color: '#888780', textDecoration: 'underline' }}>
                           {m.taskId}
                         </a>
                       ) : null}
@@ -101,26 +139,6 @@ export default async function Home() {
                 ))}
               </div>
             )}
-          </section>
-
-          <section className="sectionCard">
-            <div className="sectionLabel">Next</div>
-            <div style={{ display: 'grid', gap: 8 }}>
-              {['Add Sessions (audit trail)', 'Add Cron jobs tracker', 'Orchestrator: draft → QM consult → proposed'].map((t) => (
-                <div key={t} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span
-                    style={{
-                      width: 4,
-                      height: 4,
-                      borderRadius: 999,
-                      background: '#c8c4b8',
-                      display: 'inline-block',
-                    }}
-                  />
-                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>{t}</span>
-                </div>
-              ))}
-            </div>
           </section>
         </div>
       </div>
