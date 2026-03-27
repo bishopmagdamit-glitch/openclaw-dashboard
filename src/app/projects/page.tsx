@@ -25,7 +25,15 @@ async function safeJson(res: Response) {
 
 async function getProjects(): Promise<{ projects: Project[]; error?: string }> {
   try {
-    const res = await fetch('/api/projects', { cache: 'no-store' });
+    const base = process.env.DASHBOARD_API_BASE;
+    const token = process.env.DASHBOARD_TOKEN;
+    if (!base || !token) throw new Error('missing env');
+
+    const res = await fetch(`${base}/projects`, {
+      headers: { 'X-Dashboard-Token': token },
+      cache: 'no-store',
+    });
+
     if (!res.ok) {
       const txt = await res.text();
       return { projects: [], error: `projects backend error: ${res.status} ${txt}` };
@@ -43,7 +51,6 @@ async function createProject(formData: FormData) {
   const summary = String(formData.get('summary') || '').trim();
   if (!name) return;
 
-  // server action calls backend directly (safe, no mixed-content)
   const base = process.env.DASHBOARD_API_BASE;
   const token = process.env.DASHBOARD_TOKEN;
   if (!base || !token) throw new Error('missing env');
@@ -77,9 +84,16 @@ export default async function ProjectsPage() {
             <div className="sectionLabel">New project</div>
             <form action={createProject} style={{ display: 'grid', gap: 8 }}>
               <input className="filterPill" name="name" placeholder="Project name" style={{ textAlign: 'left' }} />
-              <input className="filterPill" name="summary" placeholder="1–2 sentence summary (optional)" style={{ textAlign: 'left' }} />
+              <input
+                className="filterPill"
+                name="summary"
+                placeholder="1–2 sentence summary (optional)"
+                style={{ textAlign: 'left' }}
+              />
               <div>
-                <button className="approveBtn" type="submit">Create draft</button>
+                <button className="approveBtn" type="submit">
+                  Create draft
+                </button>
               </div>
             </form>
             <div style={{ marginTop: 8, fontSize: 12, color: 'var(--muted)' }}>
@@ -103,15 +117,25 @@ export default async function ProjectsPage() {
                 {projects.map((p) => {
                   const pr = progress(p.roadmap || []);
                   return (
-                    <div key={p.id} style={{ display: 'grid', gap: 4, paddingBottom: 10, borderBottom: '0.5px solid #d8d4c8' }}>
+                    <div
+                      key={p.id}
+                      style={{ display: 'grid', gap: 4, paddingBottom: 10, borderBottom: '0.5px solid #d8d4c8' }}
+                    >
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
                         <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>{p.name}</div>
-                        <span className="pill" style={{ padding: '2px 10px', fontSize: 10 }}>{p.status}</span>
+                        <span className="pill" style={{ padding: '2px 10px', fontSize: 10 }}>
+                          {p.status}
+                        </span>
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.5 }}>{p.summary}</div>
-                      <div style={{ fontSize: 10, color: 'var(--hint)' }}>Roadmap: {pr.done}/{pr.total}</div>
+                      <div style={{ fontSize: 10, color: 'var(--hint)' }}>
+                        Roadmap: {pr.done}/{pr.total}
+                      </div>
                       <div style={{ marginTop: 2 }}>
-                        <Link href={`/projects/${p.id}`} style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'underline' }}>
+                        <Link
+                          href={`/projects/${p.id}`}
+                          style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'underline' }}
+                        >
                           Open
                         </Link>
                       </div>
