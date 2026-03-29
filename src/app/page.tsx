@@ -103,6 +103,24 @@ async function getFeed(): Promise<ConvMsg[]> {
   }
 }
 
+
+
+type Project = { id: string; name: string; status?: string; updatedAt?: string; createdAt?: string };
+type ProjectsResp = { projects: Project[] };
+
+async function getRecentProjects(): Promise<Project[]> {
+  try {
+    const res = await backendFetch('/projects');
+    if (!res.ok) return [];
+    const data = (await res.json()) as ProjectsResp;
+    const ps = (data.projects || []).slice();
+    ps.sort((a, b) => String(b.updatedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.createdAt || '')));
+    return ps.slice(0, 3);
+  } catch {
+    return [];
+  }
+}
+
 async function getTaskCounts(): Promise<{ proposed: number; draft: number }> {
   const res = await backendFetch('/tasks');
   const data = (await res.json()) as TasksResp;
@@ -185,6 +203,20 @@ function fmtStamp(iso: string) {
   if (diffDays < 7) return d.toLocaleString(undefined, { weekday: 'short' });
   return d.toLocaleString(undefined, { month: 'short', day: '2-digit' });
 }
+function shortenActivity(text: string) {
+  let t = (text || '').replace(/\s+/g, ' ').trim();
+  // strip obvious boilerplate / placeholder noise
+  t = t.replace(/^Execution started\s*\(placeholder\)\.*\s*/i, '');
+  t = t.replace(/^Execution (started|complete)[^—]*—\s*/i, '');
+  t = t.replace(/placeholder/gi, '').replace(/\(placeholder\)/gi, '').trim();
+  // keep only first sentence-ish
+  const m = t.match(/^(.*?)([.!?])\s/);
+  if (m) t = m[1] + m[2];
+  const max = 110;
+  if (t.length > max) t = t.slice(0, max - 1).trimEnd() + '…';
+  return t;
+}
+
 
 function XpPill({ xp, variant }: { xp: number; variant: 'gold' | 'teal' | 'coral' }) {
   const map = {
@@ -212,7 +244,7 @@ function XpPill({ xp, variant }: { xp: number; variant: 'gold' | 'teal' | 'coral
 }
 
 export default async function Home() {
-  const [xp, agents, quests, feed, taskCounts] = await Promise.all([getXp(), getAgentsStatus(), getQuests(), getFeed(), getTaskCounts()]);
+  const [xp, agents, quests, feed, taskCounts, recentProjects] = await Promise.all([getXp(), getAgentsStatus(), getQuests(), getFeed(), getTaskCounts(), getRecentProjects()]);
 
   const todayXp = xp?.todayXp ?? 0;
   const pct = Math.max(0, Math.min(1, todayXp / 1000));
@@ -306,7 +338,43 @@ export default async function Home() {
           </div>
         </div>
 
-        {/* Agent mesh */}
+        
+        {/* Roadmaps (top 3 recent projects) */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#3E3C38', marginBottom: 8 }}>
+            Roadmaps
+          </div>
+          <div style={{ display: 'flex', gap: 9, overflowX: 'auto', paddingBottom: 2 }} className="noScrollbar">
+            {(recentProjects || []).map((p) => (
+              <a
+                key={p.id}
+                href={"/projects/" + p.id}
+                style={{
+                  minWidth: 220,
+                  background: '#1E1C18',
+                  border: '0.5px solid #2A2824',
+                  borderRadius: 10,
+                  padding: '10px 12px',
+                  textDecoration: 'none',
+                  color: '#D3D1C7',
+                  display: 'grid',
+                  gap: 6,
+                }}
+              >
+                <div style={{ fontSize: 11, fontWeight: 500, color: '#D3D1C7', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                <div style={{ fontSize: 10, color: '#3E3C38' }}>milestones · status</div>
+                <div style={{ height: 5, borderRadius: 999, background: '#252320', overflow: 'hidden' }}>
+                  <div style={{ width: '35%', height: '100%', background: '#C4A84A' }} />
+                </div>
+              </a>
+            ))}
+            {(recentProjects || []).length === 0 ? (
+              <div style={{ fontSize: 11, color: '#6B6860' }}>No projects yet.</div>
+            ) : null}
+          </div>
+        </div>
+
+{/* Agent mesh */}
         <div style={{ marginBottom: 14 }}>
           <div style={{ fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#3E3C38', marginBottom: 8 }}>
             Agent mesh
@@ -499,11 +567,14 @@ export default async function Home() {
               <div style={{ fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#3E3C38', padding: '10px 12px' }}>
                 Activity
               </div>
-              {feed.map((m) => (
+              {feed
+                .filter((m) => Date.now() - new Date(m.createdAt).getTime() < 48 * 3600 * 1000)
+                .slice(0, 8)
+                .map((m) => (
                 <div key={m.id} style={{ display: 'flex', gap: 8, padding: '7px 12px', borderTop: '0.5px solid #1C1A18', alignItems: 'flex-start' }}>
                   <span style={{ width: 5, height: 5, borderRadius: 999, background: feedDot(m.role), marginTop: 5 }} />
                   <div style={{ flex: 1, fontSize: 11, color: '#5F5E5A', lineHeight: 1.4 }}>
-                    {m.role} — {m.text}
+                    {m.role} — {shortenActivity(m.text)}
                   </div>
                   <div style={{ fontSize: 10, color: '#2A2824', whiteSpace: 'nowrap' }}>{fmtStamp(m.createdAt)}</div>
                 </div>

@@ -239,3 +239,7 @@ body {
 .footer { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .meta { font-size: 10px; font-weight: 400; }
 
+
+
+.noScrollbar::-webkit-scrollbar { display: none; }
+.noScrollbar { -ms-overflow-style: none; scrollbar-width: none; }
