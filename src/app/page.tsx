@@ -127,7 +127,7 @@ async function getRecentProjects(): Promise<Project[]> {
 
 async function getMacroToday(): Promise<MetricsTodayResp | null> {
   try {
-    const res = await backendFetch('/metrics/today?agentId=macro-tracker');
+    const res = await backendFetch('/metrics/today?agentId=jeff-nipple');
     if (!res.ok) return null;
     return res.json();
   } catch {
@@ -470,7 +470,7 @@ export default async function Home({ searchParams }: { searchParams?: Record<str
 
                   <div style={{ padding: '10px 12px', display: 'grid', gap: 8 }}>
                     {/* output stat row */}
-                    {a.agentId === 'macro-tracker' && macroToday ? (
+                    {a.agentId === 'jeff-nipple' && macroToday ? (
                       <MacroBars
                         totals={macroToday.totals || {}}
                         goals={{ calories: 2800, protein_g: 150, carbs_g: 390, fat_g: 70 }}
