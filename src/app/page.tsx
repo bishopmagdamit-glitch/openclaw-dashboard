@@ -52,6 +52,9 @@ type ConvResp = { messages: ConvMsg[] };
 
 type TasksResp = { tasks: { status: string; title?: string }[] };
 
+type MetricsTodayResp = { ok: boolean; agentId: string; date: string; totals: Record<string, number>; logsCount: number; streak: number };
+
+
 async function backendFetch(path: string) {
   const base = process.env.DASHBOARD_API_BASE;
   const token = process.env.DASHBOARD_TOKEN;
@@ -119,6 +122,16 @@ async function getRecentProjects(): Promise<Project[]> {
     return ps.slice(0, 3);
   } catch {
     return [];
+  }
+}
+
+async function getMacroToday(): Promise<MetricsTodayResp | null> {
+  try {
+    const res = await backendFetch('/metrics/today?agentId=macro-tracker');
+    if (!res.ok) return null;
+    return res.json();
+  } catch {
+    return null;
   }
 }
 
@@ -219,6 +232,38 @@ function shortenActivity(text: string) {
 }
 
 
+function MacroBars({ totals, goals }: { totals: Record<string, number>; goals: Record<string, number> }) {
+  const rows = [
+    { k: 'protein_g', label: 'Protein', unit: 'g', fill: '#3DAA88' },
+    { k: 'calories', label: 'Calories', unit: 'kcal', fill: '#C4A84A' },
+    { k: 'carbs_g', label: 'Carbs', unit: 'g', fill: '#8B80D8' },
+    { k: 'fat_g', label: 'Fat', unit: 'g', fill: '#D06090' },
+  ];
+
+  return (
+    <div style={{ display: 'grid', gap: 6 }}>
+      {rows.map((r) => {
+        const cur = Math.round(Number(totals?.[r.k] || 0));
+        const goal = Math.round(Number(goals?.[r.k] || 0));
+        const pct = goal > 0 ? Math.min(1, cur / goal) : 0;
+        const over = goal > 0 && cur > goal;
+        const fill = over ? '#D07060' : r.fill;
+        return (
+          <div key={r.k} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ width: 52, flexShrink: 0, fontSize: 10, color: '#4A4844' }}>{r.label}</div>
+            <div style={{ flex: 1, height: 5, borderRadius: 999, background: '#0E2A3A', overflow: 'hidden' }}>
+              <div style={{ width: `${pct * 100}%`, height: '100%', background: fill }} />
+            </div>
+            <div style={{ width: 80, flexShrink: 0, textAlign: 'right', fontSize: 10, color: over ? '#D07060' : '#6AAAD8' }}>
+              {cur} / {goal}{r.unit}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function XpPill({ xp, variant }: { xp: number; variant: 'gold' | 'teal' | 'coral' }) {
   const map = {
     gold: { bg: '#1C1608', fg: '#C4A84A', bd: '#3A3010' },
@@ -247,7 +292,7 @@ function XpPill({ xp, variant }: { xp: number; variant: 'gold' | 'teal' | 'coral
 export default async function Home({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
   const initialAddOpen = String(searchParams?.addAgent || '') === '1';
 
-  const [xp, agents, quests, feed, taskCounts, recentProjects] = await Promise.all([getXp(), getAgentsStatus(), getQuests(), getFeed(), getTaskCounts(), getRecentProjects()]);
+  const [xp, agents, quests, feed, taskCounts, recentProjects, macroToday] = await Promise.all([getXp(), getAgentsStatus(), getQuests(), getFeed(), getTaskCounts(), getRecentProjects(), getMacroToday()]);
 
   const todayXp = xp?.todayXp ?? 0;
   const pct = Math.max(0, Math.min(1, todayXp / 1000));
@@ -425,7 +470,12 @@ export default async function Home({ searchParams }: { searchParams?: Record<str
 
                   <div style={{ padding: '10px 12px', display: 'grid', gap: 8 }}>
                     {/* output stat row */}
-                    {a.statLabels ? (
+                    {a.agentId === 'macro-tracker' && macroToday ? (
+                      <MacroBars
+                        totals={macroToday.totals || {}}
+                        goals={{ calories: 2800, protein_g: 150, carbs_g: 390, fat_g: 70 }}
+                      />
+                    ) : a.statLabels ? (
                       <div style={{ display: 'flex', gap: 8 }}>
                         {a.stats.map((v, idx) => (
                           <div key={idx} style={{ flex: 1 }}>
