@@ -66,13 +66,13 @@ async function getConversations(): Promise<ConvMsg[]> {
   }
 }
 
-async function getMusicCrate(): Promise<ConvMsg | null> {
+async function getMusicPicks(): Promise<ConvMsg[]> {
   try {
-    const res = await backendFetch('/conversations?type=deliverable&category=music&limit=1');
+    const res = await backendFetch('/conversations?type=deliverable&category=music&limit=10');
     const data = await res.json();
-    return (data.messages && data.messages[0]) || null;
+    return data.messages || [];
   } catch {
-    return null;
+    return [];
   }
 }
 
@@ -124,23 +124,31 @@ function roleColor(role: string) {
   return '#888780';
 }
 
-function extractLinks(text: string) {
-  const re = /(https?:\/\/[^\s)]+)|((?:https?:\/\/)?duckduckgo\.com\/\?q=[^\s]+)/g;
-  const found = [] as string[];
-  let m;
-  while ((m = re.exec(text))) {
-    found.push(m[0].startsWith('http') ? m[0] : `https://${m[0]}`);
-  }
-  return found;
+function parsePick(text: string) {
+  const get = (k: string) => {
+    const m = text.match(new RegExp(`^${k}:\\s*(.+)$`, 'm'));
+    return m ? m[1].trim() : '';
+  };
+  return {
+    title: get('Title'),
+    platform: get('Platform'),
+    url: get('URL').replace(/&amp;/g, '&').replace(/&quot;/g, '"').split('"')[0].trim(),
+    source: get('Source'),
+    thread: get('Thread'),
+  };
 }
 
 export default async function Home() {
-  const [agents, msgs, xp, quests, music] = await Promise.all([getAgents(), getConversations(), getXp(), getQuests(), getMusicCrate()]);
+  const [agents, msgs, xp, quests, musicPicks] = await Promise.all([
+    getAgents(),
+    getConversations(),
+    getXp(),
+    getQuests(),
+    getMusicPicks(),
+  ]);
 
   const todayXp = xp?.todayXp ?? 0;
   const pct = Math.max(0, Math.min(1, todayXp / 1000));
-
-  const musicLinks = music ? extractLinks(music.text).slice(0, 10) : [];
 
   return (
     <main>
@@ -189,16 +197,29 @@ export default async function Home() {
 
           <section className="sectionCard">
             <div className="sectionLabel">Music crate (today)</div>
-            {!music ? (
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>No crate yet.</div>
+            {musicPicks.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>No picks yet.</div>
             ) : (
-              <div style={{ display: 'grid', gap: 6 }}>
-                <div style={{ fontSize: 10, color: 'var(--hint)' }}>{new Date(music.createdAt).toLocaleString()}</div>
-                {musicLinks.map((u) => (
-                  <a key={u} href={u} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'underline' }}>
-                    {u}
-                  </a>
-                ))}
+              <div style={{ display: 'grid', gap: 10 }}>
+                {musicPicks.map((m) => {
+                  const p = parsePick(m.text);
+                  return (
+                    <div key={m.id} style={{ display: 'grid', gap: 4, paddingBottom: 10, borderBottom: '0.5px solid #d8d4c8' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--ink)' }}>{p.title || '(untitled)'}</div>
+                        <span className="pill" style={{ padding: '2px 10px', fontSize: 10 }}>{p.platform || 'link'}</span>
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--hint)' }}>{p.source}</div>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <a href={p.url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'underline' }}>Open</a>
+                        {p.thread ? (
+                          <a href={p.thread} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'underline' }}>Thread</a>
+                        ) : null}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--hint)' }}>{new Date(m.createdAt).toLocaleString()}</div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
