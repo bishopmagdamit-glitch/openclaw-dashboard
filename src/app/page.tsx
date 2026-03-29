@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { Topbar } from '../components/Topbar';
+import { AddAgentShell } from '../components/agents/AddAgentShell';
 
 type AgentStatus = {
   agentId: string;
@@ -243,7 +244,9 @@ function XpPill({ xp, variant }: { xp: number; variant: 'gold' | 'teal' | 'coral
   );
 }
 
-export default async function Home() {
+export default async function Home({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> }) {
+  const initialAddOpen = String(searchParams?.addAgent || '') === '1';
+
   const [xp, agents, quests, feed, taskCounts, recentProjects] = await Promise.all([getXp(), getAgentsStatus(), getQuests(), getFeed(), getTaskCounts(), getRecentProjects()]);
 
   const todayXp = xp?.todayXp ?? 0;
@@ -456,27 +459,8 @@ export default async function Home() {
                 </div>
               );
             })}
-
-            {/* Add subagent card */}
-            <div
-              style={{
-                background: '#1A1814',
-                border: '0.5px dashed #2A2824',
-                borderRadius: 10,
-                minHeight: 130,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7, alignItems: 'center' }}>
-                <div style={{ width: 30, height: 30, borderRadius: 7, background: '#222018', border: '0.5px solid #2A2824', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#5F5E5A', fontSize: 16 }}>
-                  +
-                </div>
-                <div style={{ fontSize: 11, fontWeight: 500, color: '#3E3C38' }}>Add subagent</div>
-                <div style={{ fontSize: 10, color: '#2A2824', textAlign: 'center' }}>metrics · feed · tasks · report · watcher · custom</div>
-              </div>
-            </div>
+            {/* Add subagent flow */}
+            <AddAgentShell initialOpen={initialAddOpen} />
           </div>
         </div>
 
