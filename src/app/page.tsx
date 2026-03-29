@@ -7,7 +7,10 @@ type AgentsResp = { agents: string[] };
 type ConvMsg = {
   id: string;
   taskId: string | null;
+  projectId?: string | null;
   role: string;
+  type?: string;
+  category?: string | null;
   text: string;
   createdAt: string;
 };
@@ -63,6 +66,16 @@ async function getConversations(): Promise<ConvMsg[]> {
   }
 }
 
+async function getMusicCrate(): Promise<ConvMsg | null> {
+  try {
+    const res = await backendFetch('/conversations?type=deliverable&category=music&limit=1');
+    const data = await res.json();
+    return (data.messages && data.messages[0]) || null;
+  } catch {
+    return null;
+  }
+}
+
 async function getXp(): Promise<XpStore | null> {
   try {
     const res = await backendFetch('/xp');
@@ -107,14 +120,27 @@ async function completeQuest(formData: FormData) {
 function roleColor(role: string) {
   if (role === 'quartermaster') return '#2e7a5e';
   if (role === 'orchestrator') return '#9a6e10';
+  if (role === 'music-explorer') return '#6b5a1a';
   return '#888780';
 }
 
+function extractLinks(text: string) {
+  const re = /(https?:\/\/[^\s)]+)|((?:https?:\/\/)?duckduckgo\.com\/\?q=[^\s]+)/g;
+  const found = [] as string[];
+  let m;
+  while ((m = re.exec(text))) {
+    found.push(m[0].startsWith('http') ? m[0] : `https://${m[0]}`);
+  }
+  return found;
+}
+
 export default async function Home() {
-  const [agents, msgs, xp, quests] = await Promise.all([getAgents(), getConversations(), getXp(), getQuests()]);
+  const [agents, msgs, xp, quests, music] = await Promise.all([getAgents(), getConversations(), getXp(), getQuests(), getMusicCrate()]);
 
   const todayXp = xp?.todayXp ?? 0;
   const pct = Math.max(0, Math.min(1, todayXp / 1000));
+
+  const musicLinks = music ? extractLinks(music.text).slice(0, 10) : [];
 
   return (
     <main>
@@ -159,6 +185,22 @@ export default async function Home() {
                 </div>
               ))}
             </div>
+          </section>
+
+          <section className="sectionCard">
+            <div className="sectionLabel">Music crate (today)</div>
+            {!music ? (
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>No crate yet.</div>
+            ) : (
+              <div style={{ display: 'grid', gap: 6 }}>
+                <div style={{ fontSize: 10, color: 'var(--hint)' }}>{new Date(music.createdAt).toLocaleString()}</div>
+                {musicLinks.map((u) => (
+                  <a key={u} href={u} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: 'var(--muted)', textDecoration: 'underline' }}>
+                    {u}
+                  </a>
+                ))}
+              </div>
+            )}
           </section>
 
           <section className="sectionCard">
