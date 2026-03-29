@@ -245,8 +245,8 @@ export default async function Home() {
     return (
       <div
         style={{
-          background: '#222018',
-          border: '0.5px solid #2E2C28',
+          background: '#1E1C18',
+          border: '0.5px solid #2A2824',
           borderRadius: 9,
           padding: '10px 12px',
         }}
@@ -263,7 +263,7 @@ export default async function Home() {
       <Topbar active="home" />
 
       {/* XP strip */}
-      <div style={{ background: '#151310', borderBottom: '0.5px solid #2E2C28' }}>
+      <div style={{ background: '#131210', borderBottom: '0.5px solid #2E2C28' }}>
         <div className="container" style={{ padding: '6px 20px' }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <span style={{ fontSize: 10, color: '#4A4844' }}>XP</span>
@@ -307,7 +307,7 @@ export default async function Home() {
           <div style={{ fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#3E3C38', marginBottom: 8 }}>
             System pulse
           </div>
-          <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
+          <div style={{ display: 'grid', gap: 7, gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
             <StatCard value={activeAgents} label="Active agents" delta="+0 this week" deltaColor="#3DAA88" />
             <StatCard value={deliverablesToday} label="Deliverables today" delta="↑ vs 0 yesterday" deltaColor="#3DAA88" />
             <StatCard value={awaitingApproval} label="Awaiting approval" delta={`${taskCounts.draft} in draft`} deltaColor="#D07060" />
@@ -320,7 +320,7 @@ export default async function Home() {
           <div style={{ fontSize: 10, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#3E3C38', marginBottom: 8 }}>
             Agent mesh
           </div>
-          <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+          <div style={{ display: 'grid', gap: 9, gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
             {agents.map((a) => {
               const av = avatarColors(a.color);
               const borderTint = agentRampBorder(a.color);

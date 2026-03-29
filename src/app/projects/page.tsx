@@ -77,7 +77,7 @@ export default async function ProjectsPage() {
 
   return (
     <main>
-      <Topbar active="projects" />
+      <Topbar active="home" />
       <div className="container" style={{ padding: '16px 20px' }}>
         <div style={{ display: 'grid', gap: 10 }}>
           <section className="sectionCard">

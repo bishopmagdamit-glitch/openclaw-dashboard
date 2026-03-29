@@ -42,7 +42,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
   return (
     <main>
-      <Topbar active="projects" />
+      <Topbar active="home" />
       <div className="container" style={{ padding: '16px 20px' }}>
         {error ? (
           <section className="sectionCard">
