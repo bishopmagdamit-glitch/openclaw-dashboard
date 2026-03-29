@@ -1,18 +1,19 @@
 @import "tailwindcss";
 
 :root {
+  --chrome: #151310;
   /* dark ops terminal palette */
-  --page: #1f1d19;
-  --card: #242220;
+  --page: #1A1814;
+  --card: #1E1C18;
   --card-hover: #272520;
-  --border: #2e2c28;
+  --border: #2A2824;
 
-  --ink: #e8e2cc;
-  --muted: #888780;
-  --hint: #4a4844;
+  --ink: #E8E2CC;
+  --muted: #5F5E5A;
+  --hint: #3E3C38;
 
   /* gold accent */
-  --gold: #c4a84a;
+  --gold: #C4A84A;
   --gold-border: #5a480c;
   --gold-ink: #1a1400;
 
